@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>핫이슈 블로그 생성기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #378ADD;
+    --blue-light: #E6F1FB;
+    --blue-dark: #0C447C;
+    --blue-mid: #185FA5;
+    --green: #1D9E75;
+    --green-light: #E1F5EE;
+    --green-border: #9FE1CB;
+    --green-text: #0F6E56;
+    --tag-green-bg: #EAF3DE;
+    --tag-green-text: #3B6D11;
+    --google-blue: #4285F4;
+    --red-light: #FCEBEB;
+    --red-border: #F7C1C1;
+    --red-text: #791F1F;
+    --amber-light: #FAEEDA;
+    --amber-text: #633806;
+    --bg: #ffffff;
+    --bg-secondary: #f8f8f6;
+    --border: rgba(0,0,0,0.1);
+    --border-md: rgba(0,0,0,0.18);
+    --text: #1a1a1a;
+    --text-secondary: #666;
+    --text-tertiary: #999;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #f0f2f5; min-height: 100vh; color: var(--text); }
+
+  .top-bar {
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+  }
+  .top-bar-logo { font-size: 16px; font-weight: 700; color: var(--blue); }
+  .top-bar-sub { font-size: 12px; color: var(--text-tertiary); }
+
+  .container { max-width: 680px; margin: 32px auto; padding: 0 16px 60px; }
+
+  .card {
+    background: var(--bg); border-radius: var(--radius-lg); border: 1px solid var(--border);
+    overflow: hidden; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  .card-header { padding: 20px 24px 0; }
+  .card-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .card-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .card-body { padding: 20px 24px 24px; }
+
+  /* 스텝 */
+  .step-block { position: relative; margin-bottom: 6px; }
+  .step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .step-badge {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--blue);
+    color: white; font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(55,138,221,0.35);
+  }
+  .step-head-label { font-size: 13px; font-weight: 700; color: var(--blue-dark); line-height: 1.4; }
+  .step-line { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+  .step-line-bar { width: 28px; display: flex; justify-content: center; flex-shrink: 0; }
+  .step-line-bar::before {
+    content: ''; display: block; width: 2px; height: 18px;
+    background: linear-gradient(to bottom, rgba(55,138,221,0.5), rgba(55,138,221,0.1)); border-radius: 2px;
+  }
+
+  /* API 영역 */
+  .api-section {
+    background: var(--blue-light); border-radius: var(--radius);
+    padding: 14px; border: 1.5px solid rgba(55,138,221,0.2); transition: all 0.3s;
+  }
+  .api-section.connected { background: var(--green-light); border-color: var(--green-border); }
+
+  .api-row { display: flex; gap: 8px; align-items: center; }
+  .api-input {
+    flex: 1; padding: 10px 12px; border: 1.5px solid rgba(55,138,221,0.3);
+    border-radius: var(--radius); font-size: 13px; font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg); color: var(--text); transition: border-color 0.15s;
+  }
+  .api-input:focus { outline: none; border-color: var(--blue); }
+  .api-input.ok { border-color: var(--green); }
+  .api-input.fail { border-color: #E24B4A; }
+
+  .check-btn {
+    padding: 10px 14px; background: var(--bg); border: 1.5px solid var(--border-md);
+    border-radius: var(--radius); font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    cursor: pointer; white-space: nowrap; font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.15s; display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+  }
+  .check-btn:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+  .check-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .check-btn.checking { border-color: var(--blue); color: var(--blue); }
+  .check-btn.ok { border-color: var(--green); color: var(--green-text); background: var(--green-light); }
+  .check-btn.fail { border-color: #E24B4A; color: var(--red-text); background: var(--red-light); }
+
+  .api-status {
+    margin-top: 10px; padding: 10px 14px; border-radius: var(--radius);
+    font-size: 13px; line-height: 1.5; display: none; align-items: center; gap: 8px;
+  }
+  .api-status.show { display: flex; }
+  .api-status.ok { background: var(--green-light); color: var(--green-text); border: 1px solid var(--green-border); }
+  .api-status.fail { background: var(--red-light); color: var(--red-text); border: 1px solid var(--red-border); }
+  .api-status-icon { font-size: 16px; flex-shrink: 0; }
+
+  /* 저장 안내 뱃지 */
+  .save-badge {
+    margin-top: 10px; padding: 9px 12px; border-radius: var(--radius);
+    font-size: 12px; display: none; align-items: center; gap: 8px;
+    background: var(--green-light); color: var(--green-text);
+    border: 1px solid var(--green-border);
+  }
+  .save-badge.show { display: flex; }
+  .save-badge-del {
+    margin-left: auto; padding: 3px 8px; font-size: 11px;
+    background: transparent; border: 1px solid var(--green-border);
+    border-radius: 4px; color: var(--green-text); cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif; white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .save-badge-del:hover { background: #c5ead9; }
+
+  .api-row2 { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .api-guide-btn {
+    padding: 8px 12px; background: var(--google-blue); border: none;
+    border-radius: var(--radius); font-size: 12px; font-weight: 500; color: white;
+    cursor: pointer; white-space: nowrap; font-family: 'Noto Sans KR', sans-serif; transition: opacity 0.15s;
+  }
+  .api-guide-btn:hover { opacity: 0.88; }
+  .api-tip { font-size: 12px; color: var(--blue-mid); cursor: pointer; flex: 1; }
+  .api-tip span { text-decoration: underline; }
+  .api-tip:hover { opacity: 0.8; }
+  .api-section.connected .api-tip { color: var(--green-text); }
+
+  /* 이슈 타입 */
+  .type-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .type-btn {
+    padding: 14px 8px; border: 1.5px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--bg); cursor: pointer; text-align: center; transition: all 0.15s;
+    color: var(--text); font-family: 'Noto Sans KR', sans-serif;
+  }
+  .type-btn:hover { background: var(--bg-secondary); border-color: var(--border-md); }
+  .type-btn.selected { border: 2px solid var(--blue); background: var(--blue-light); }
+  .type-btn .icon { font-size: 22px; margin-bottom: 6px; }
+  .type-btn .label { font-weight: 700; font-size: 13px; }
+  .type-btn .desc { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; }
+  .type-btn.selected .label { color: var(--blue-dark); }
+  .type-btn.selected .desc { color: var(--blue-mid); }
+
+  .gen-btn {
+    width: 100%; padding: 14px; background: var(--blue); color: white; border: none;
+    border-radius: var(--radius); font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: 'Noto Sans KR', sans-serif; transition: all 0.15s;
+  }
+  .gen-btn:hover:not(:disabled) { background: #2a6fbf; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(55,138,221,0.3); }
+  .gen-btn:active { transform: translateY(0); }
+  .gen-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .cancel-btn {
+    width: 100%; padding: 10px; background: transparent; border: 1px solid var(--border-md);
+    border-radius: var(--radius); font-size: 13px; cursor: pointer; color: var(--text-secondary);
+    font-family: 'Noto Sans KR', sans-serif; margin-top: 8px; display: none;
+  }
+  .cancel-btn:hover { background: var(--bg-secondary); }
+  .cancel-btn.show { display: block; }
+
+  .status-bar {
+    display: none; align-items: center; gap: 10px; padding: 12px 16px;
+    background: var(--blue-light); border-radius: var(--radius); font-size: 13px;
+    color: var(--blue-dark); margin-top: 12px; border: 1px solid rgba(55,138,221,0.2);
+  }
+  .status-bar.show { display: flex; }
+  .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(55,138,221,0.25); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  .spinner-sm { width: 13px; height: 13px; border: 2px solid rgba(55,138,221,0.25); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    display: none; padding: 12px 16px; background: var(--red-light); border: 1px solid var(--red-border);
+    border-radius: var(--radius); font-size: 13px; color: var(--red-text); margin-top: 12px; line-height: 1.5;
+  }
+  .error-box.show { display: block; }
+
+  /* 결과 */
+  .result-card {
+    background: var(--bg); border-radius: var(--radius-lg); border: 1px solid var(--border);
+    overflow: hidden; margin-top: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);} }
+  .result-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex;
+    align-items: flex-start; gap: 12px; background: linear-gradient(135deg,#f8fbff 0%,#fff 100%);
+  }
+  .result-title { font-weight: 700; font-size: 15px; color: var(--text); flex: 1; line-height: 1.5; }
+  .copy-btn {
+    padding: 7px 14px; background: var(--bg); border: 1.5px solid var(--border-md);
+    border-radius: var(--radius); font-size: 12px; font-weight: 500; cursor: pointer;
+    color: var(--text-secondary); font-family: 'Noto Sans KR', sans-serif;
+    white-space: nowrap; flex-shrink: 0; transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green-text); background: var(--green-light); }
+  .blog-images {
+    display: flex; gap: 8px; padding: 12px 20px; overflow-x: auto;
+    border-bottom: 1px solid var(--border); background: var(--bg-secondary); scrollbar-width: thin;
+  }
+  .blog-img-wrap {
+    flex-shrink: 0; width: 160px; height: 110px; border-radius: var(--radius);
+    overflow: hidden; background: #e8e8e8; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .blog-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-caption {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent,rgba(0,0,0,0.6));
+    color: white; font-size: 10px; padding: 12px 6px 4px; text-align: center; line-height: 1.3;
+  }
+  .img-placeholder {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--text-tertiary); font-size: 11px; text-align: center; padding: 8px;
+    line-height: 1.4; background: var(--bg-secondary);
+  }
+  .blog-content {
+    padding: 20px; font-size: 14px; line-height: 1.9; color: var(--text);
+    white-space: pre-wrap; word-break: keep-all; max-height: 380px; overflow-y: auto; scrollbar-width: thin;
+  }
+  .meta-row {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; gap: 6px; flex-wrap: wrap; background: var(--bg-secondary);
+  }
+  .tag { padding: 4px 12px; background: var(--blue-light); color: var(--blue-mid); border-radius: 20px; font-size: 12px; font-weight: 500; }
+  .tag.cat { background: var(--tag-green-bg); color: var(--tag-green-text); }
+
+  /* 모달 */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    display: none; align-items: center; justify-content: center;
+    z-index: 9999; padding: 20px; overflow-y: auto; backdrop-filter: blur(3px);
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--bg); border-radius: 16px; width: 100%; max-width: 480px; margin: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn { from{opacity:0;transform:scale(0.96) translateY(10px);}to{opacity:1;transform:scale(1) translateY(0);} }
+  .modal-header {
+    padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg,#EBF4FF 0%,#fff 100%);
+  }
+  .modal-header h2 { font-size: 17px; font-weight: 700; color: var(--text); }
+  .modal-close {
+    width: 30px; height: 30px; border: none; background: rgba(0,0,0,0.06); border-radius: 50%;
+    cursor: pointer; font-size: 14px; color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s; font-family: 'Noto Sans KR', sans-serif;
+  }
+  .modal-close:hover { background: rgba(0,0,0,0.12); }
+  .modal-body { padding: 24px; }
+  .m-step { display: flex; gap: 14px; margin-bottom: 20px; align-items: flex-start; }
+  .m-step:last-of-type { margin-bottom: 0; }
+  .m-step-num {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: white;
+    font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; box-shadow: 0 2px 8px rgba(55,138,221,0.3);
+  }
+  .m-step-content { flex: 1; }
+  .m-step-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+  .m-step-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .m-step-desc strong { color: var(--text); font-weight: 500; }
+  .m-step-hint {
+    margin-top: 8px; padding: 10px 14px; background: var(--bg-secondary); border-radius: var(--radius);
+    font-size: 12px; color: var(--text-secondary); border-left: 3px solid var(--blue); line-height: 1.7;
+  }
+  .m-step-hint b { color: var(--text); font-weight: 500; }
+  .modal-divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .free-badge {
+    display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px;
+    background: var(--green-light); border-radius: var(--radius); margin-bottom: 12px;
+  }
+  .free-badge-icon {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--green); color: white;
+    font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .free-badge-text { font-size: 13px; color: var(--green-text); line-height: 1.6; }
+  .free-badge-text strong { font-weight: 700; }
+  .warn-box {
+    padding: 10px 14px; background: var(--amber-light); border-radius: var(--radius);
+    font-size: 12px; color: var(--amber-text); line-height: 1.6; margin-bottom: 16px;
+  }
+  .go-btn {
+    display: block; width: 100%; padding: 13px; background: var(--google-blue); color: white;
+    border: none; border-radius: var(--radius); font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: 'Noto Sans KR', sans-serif; text-align: center;
+    text-decoration: none; transition: all 0.15s;
+  }
+  .go-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(66,133,244,0.35); }
+
+  .footer-tip { text-align: center; font-size: 12px; color: var(--text-tertiary); margin-top: 8px; line-height: 1.6; }
+
+  @media (max-width: 480px) {
+    .container { padding: 0 12px 40px; margin-top: 16px; }
+    .card-body { padding: 16px; }
+    .type-grid { gap: 6px; }
+    .type-btn { padding: 10px 4px; }
+    .type-btn .icon { font-size: 18px; }
+    .type-btn .label { font-size: 12px; }
+    .modal-body { padding: 16px; }
+    .top-bar { padding: 12px 16px; }
+    .check-btn { font-size: 11px; padding: 10px 10px; }
+    .api-guide-btn { font-size: 11px; padding: 8px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-bar-logo">📰 핫이슈 블로그 생성기</div>
+  <div class="top-bar-sub">Google Gemini AI · 무료</div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">오늘의 핫이슈 블로그 글 자동 생성</div>
+      <div class="card-desc">AI가 오늘 뉴스를 검색해서 SEO 최적화 블로그 글을 바로 써드려요.</div>
+    </div>
+    <div class="card-body">
+
+      <!-- STEP 1 -->
+      <div class="step-block">
+        <div class="step-head">
+          <div class="step-badge">1</div>
+          <div class="step-head-label">API 키 입력 — 처음이라면 아래 버튼으로 무료 발급받으세요</div>
+        </div>
+        <div class="api-section" id="apiSection">
+          <div class="api-row">
+            <input class="api-input" type="password" id="apiKey"
+              placeholder="AIza로 시작하는 Gemini API 키 입력..."
+              oninput="resetCheckState()" />
+            <button class="check-btn" id="checkBtn" onclick="checkConnection()">
+              <span id="checkBtnIcon">🔗</span>
+              <span id="checkBtnText">연결 확인</span>
+            </button>
+          </div>
+
+          <!-- 연결 상태 -->
+          <div class="api-status" id="apiStatus">
+            <span class="api-status-icon" id="apiStatusIcon"></span>
+            <span id="apiStatusText"></span>
+          </div>
+
+          <!-- 저장됨 뱃지 -->
+          <div class="save-badge" id="saveBadge">
+            <span>🔒 이 기기에 안전하게 저장된 키가 자동으로 불러와졌어요</span>
+            <button class="save-badge-del" onclick="deleteKey()">키 삭제</button>
+          </div>
+
+          <div class="api-row2">
+            <button class="api-guide-btn" onclick="openGuide()">🔑 구글 무료 API 키 발급</button>
+            <div class="api-tip" onclick="openGuide()">처음이세요? <span>무료 키 발급 방법 보기 →</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-line"><div class="step-line-bar"></div></div>
+
+      <!-- STEP 2 -->
+      <div class="step-block">
+        <div class="step-head">
+          <div class="step-badge">2</div>
+          <div class="step-head-label">이슈 유형 선택</div>
+        </div>
+        <div class="type-grid">
+          <button class="type-btn selected" onclick="selectType(1,this)">
+            <div class="icon">🇰🇷</div><div class="label">국내 이슈</div><div class="desc">한국 핫이슈</div>
+          </button>
+          <button class="type-btn" onclick="selectType(2,this)">
+            <div class="icon">🌍</div><div class="label">세계 이슈</div><div class="desc">글로벌 트렌드</div>
+          </button>
+          <button class="type-btn" onclick="selectType(3,this)">
+            <div class="icon">🌐</div><div class="label">국내+세계</div><div class="desc">통합 이슈</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="step-line"><div class="step-line-bar"></div></div>
+
+      <!-- STEP 3 -->
+      <div class="step-block">
+        <div class="step-head">
+          <div class="step-badge">3</div>
+          <div class="step-head-label">버튼 클릭 — AI가 자동으로 글을 써드려요</div>
+        </div>
+        <button class="gen-btn" id="genBtn" onclick="generate()">✨ 오늘의 핫이슈 블로그 글 생성하기</button>
+        <button class="cancel-btn" id="cancelBtn" onclick="cancel()">취소</button>
+      </div>
+
+      <div class="status-bar" id="statusBar">
+        <div class="spinner"></div>
+        <span id="statusText">Google에서 오늘의 핫이슈 검색 중...</span>
+      </div>
+      <div class="error-box" id="errorBox"></div>
+      <div id="resultArea"></div>
+
+    </div>
+  </div>
+
+  <div class="footer-tip">
+    API 키는 이 기기 브라우저에만 저장되며 서버로 전송되지 않아요<br>
+    하루 500회 무료 · 카드 등록 불필요
+  </div>
+</div>
+
+<!-- 가이드 모달 -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeGuideOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🔑 구글 무료 API 키 발급 방법</h2>
+      <button class="modal-close" onclick="closeGuide()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="m-step">
+        <div class="m-step-num">1</div>
+        <div class="m-step-content">
+          <div class="m-step-title">Google AI Studio 접속</div>
+          <div class="m-step-desc">아래 파란 버튼을 클릭해서 <strong>Google AI Studio</strong>에 접속하세요.<br>평소 쓰시는 <strong>구글(Gmail) 계정</strong>으로 로그인하시면 돼요.</div>
+        </div>
+      </div>
+      <div class="m-step">
+        <div class="m-step-num">2</div>
+        <div class="m-step-content">
+          <div class="m-step-title">왼쪽 메뉴에서 API 키 클릭</div>
+          <div class="m-step-desc">로그인 후 화면 왼쪽 사이드바에서 <strong>Get API key</strong>를 클릭하세요.</div>
+          <div class="m-step-hint">화면 왼쪽 메뉴 → <b>🔑 Get API key</b> 클릭</div>
+        </div>
+      </div>
+      <div class="m-step">
+        <div class="m-step-num">3</div>
+        <div class="m-step-content">
+          <div class="m-step-title">새 API 키 만들기</div>
+          <div class="m-step-desc">파란색 <strong>Create API key</strong> 버튼을 클릭하세요.<br><strong>Create API key in new project</strong>를 선택하세요.</div>
+          <div class="m-step-hint"><b>+ Create API key</b> 클릭 → <b>Create API key in new project</b> 선택</div>
+        </div>
+      </div>
+      <div class="m-step">
+        <div class="m-step-num">4</div>
+        <div class="m-step-content">
+          <div class="m-step-title">키 복사해서 붙여넣기</div>
+          <div class="m-step-desc"><strong>AIza</strong>로 시작하는 긴 문자열이 나타나요.<br>복사 후 이 앱의 입력창에 <strong>붙여넣기(Ctrl+V)</strong> 하세요.</div>
+          <div class="m-step-hint"><b>AIzaSy...</b> 옆 복사 아이콘 클릭 → 앱 입력창에 <b>Ctrl+V</b></div>
+        </div>
+      </div>
+      <div class="modal-divider"></div>
+      <div class="free-badge">
+        <div class="free-badge-icon">✓</div>
+        <div class="free-badge-text"><strong>완전 무료예요!</strong><br>카드 등록 없이 하루 <strong>500번</strong> 무료로 사용 가능해요.</div>
+      </div>
+      <div class="warn-box">⚠️ 주의: API 키는 비밀번호처럼 소중하게 관리하세요. 타인과 공유하거나 공개된 곳에 올리지 마세요.</div>
+      <a class="go-btn" href="https://aistudio.google.com/apikey" target="_blank" onclick="closeGuide()">Google AI Studio 바로 가기 →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'gemini_api_key';
+let selectedType = 1;
+let abortController = null;
+let timeoutId = null;
+
+/* ── 페이지 로드시 저장된 키 자동 불러오기 ── */
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    document.getElementById('apiKey').value = saved;
+    document.getElementById('saveBadge').classList.add('show');
+    // 저장된 키면 입력창 OK 스타일 적용
+    document.getElementById('apiKey').className = 'api-input ok';
+  }
+});
+
+/* ── 키 삭제 ── */
+function deleteKey() {
+  localStorage.removeItem(STORAGE_KEY);
+  document.getElementById('apiKey').value = '';
+  document.getElementById('saveBadge').classList.remove('show');
+  resetCheckState();
+  document.getElementById('apiKey').placeholder = 'AIza로 시작하는 Gemini API 키 입력...';
+}
+
+/* ── 모달 ── */
+function openGuide() { document.getElementById('modalOverlay').classList.add('show'); }
+function closeGuide() { document.getElementById('modalOverlay').classList.remove('show'); }
+function closeGuideOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeGuide(); }
+
+/* ── 이슈 선택 ── */
+function selectType(t, el) {
+  selectedType = t;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+/* ── 연결 확인 상태 초기화 ── */
+function resetCheckState() {
+  const btn = document.getElementById('checkBtn');
+  const input = document.getElementById('apiKey');
+  const status = document.getElementById('apiStatus');
+  const section = document.getElementById('apiSection');
+  btn.className = 'check-btn'; btn.disabled = false;
+  document.getElementById('checkBtnIcon').textContent = '🔗';
+  document.getElementById('checkBtnText').textContent = '연결 확인';
+  input.className = 'api-input';
+  status.className = 'api-status';
+  section.className = 'api-section';
+  document.getElementById('saveBadge').classList.remove('show');
+}
+
+/* ── 연결 확인 ── */
+async function checkConnection() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const btn = document.getElementById('checkBtn');
+  const input = document.getElementById('apiKey');
+  const section = document.getElementById('apiSection');
+
+  if (!apiKey) { setApiStatus('fail','❌','API 키를 먼저 입력해주세요.'); return; }
+  if (!apiKey.startsWith('AIza')) {
+    setApiStatus('fail','❌','AIza로 시작하는 키를 입력해주세요.');
+    input.className = 'api-input fail'; return;
+  }
+
+  btn.disabled = true; btn.className = 'check-btn checking';
+  document.getElementById('checkBtnIcon').innerHTML = '<div class="spinner-sm"></div>';
+  document.getElementById('checkBtnText').textContent = '확인 중...';
+  document.getElementById('apiStatus').className = 'api-status';
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: '안녕' }] }],
+          generationConfig: { maxOutputTokens: 5 }
+        })
+      }
+    );
+
+    if (res.ok) {
+      /* ✅ 성공 → localStorage에 저장 */
+      localStorage.setItem(STORAGE_KEY, apiKey);
+      btn.className = 'check-btn ok';
+      document.getElementById('checkBtnIcon').textContent = '✓';
+      document.getElementById('checkBtnText').textContent = '연결됨';
+      input.className = 'api-input ok';
+      section.className = 'api-section connected';
+      setApiStatus('ok','✅','API 키 연결 성공! 이 기기에 안전하게 저장됐어요. 다음부터 자동으로 불러와요.');
+      document.getElementById('saveBadge').classList.remove('show');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.error?.message || '';
+      btn.className = 'check-btn fail'; btn.disabled = false;
+      document.getElementById('checkBtnIcon').textContent = '✕';
+      document.getElementById('checkBtnText').textContent = '실패';
+      input.className = 'api-input fail';
+      section.className = 'api-section';
+      let errMsg = 'API 키가 올바르지 않아요. 다시 확인해주세요.';
+      if (res.status === 429) errMsg = '요청이 너무 많아요. 잠시 후 다시 시도해주세요.';
+      else if (msg.includes('quota')) errMsg = '무료 한도를 초과했어요. 내일 다시 시도해주세요.';
+      setApiStatus('fail','❌', errMsg);
+    }
+  } catch(e) {
+    btn.className = 'check-btn fail'; btn.disabled = false;
+    document.getElementById('checkBtnIcon').textContent = '✕';
+    document.getElementById('checkBtnText').textContent = '실패';
+    input.className = 'api-input fail';
+    section.className = 'api-section';
+    setApiStatus('fail','❌','네트워크 오류예요. 인터넷 연결을 확인해주세요.');
+  }
+}
+
+function setApiStatus(type, icon, text) {
+  const el = document.getElementById('apiStatus');
+  el.className = `api-status show ${type}`;
+  document.getElementById('apiStatusIcon').textContent = icon;
+  document.getElementById('apiStatusText').textContent = text;
+}
+
+/* ── UI 공통 ── */
+function setStatus(msg) {
+  const bar = document.getElementById('statusBar');
+  if (msg) { bar.classList.add('show'); document.getElementById('statusText').textContent = msg; }
+  else { bar.classList.remove('show'); }
+}
+function showError(msg) { const b = document.getElementById('errorBox'); b.innerHTML = msg; b.classList.add('show'); }
+function hideError() { document.getElementById('errorBox').classList.remove('show'); }
+function resetUI() {
+  document.getElementById('genBtn').disabled = false;
+  document.getElementById('cancelBtn').classList.remove('show');
+  setStatus('');
+}
+function cancel() {
+  if (abortController) abortController.abort();
+  if (timeoutId) clearTimeout(timeoutId);
+  resetUI();
+}
+
+function getTodayDate() {
+  const now = new Date();
+  return `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일`;
+}
+
+function extractJSON(text) {
+  const patterns = [/```json\s*([\s\S]*?)```/, /```\s*([\s\S]*?)```/, /(\{[\s\S]*\})/];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) { try { return JSON.parse(m[1].trim()); } catch(e) {} }
+  }
+  try { return JSON.parse(text.trim()); } catch(e) {}
+  return null;
+}
+
+function getSystemPrompt() {
+  return `당신은 트렌드 이슈 블로그 작성자입니다. 오늘 날짜는 ${getTodayDate()}입니다.
+반드시 순수 JSON만 출력하세요. 마크다운 코드블록 없이 { }로만 감싸주세요.
+cite 태그, 인용 태그, 마크다운 기호, 불렛포인트 절대 금지.
+content는 특수문자 없이 순수 텍스트 800자 내외, 따뜻한 대화체, ~해요 ~네요 종결어미 사용.
+출력 형식: {"title":"블로그 제목 60자 이내","category":"경제 또는 방송연예 또는 건강 또는 IT리뷰 또는 패션 또는 여행 또는 음식","keywords":["키워드1","키워드2","키워드3"],"content":"본문 전체 텍스트","imageQueries":["영문검색어1","영문검색어2","영문검색어3"],"summary":"한줄요약 50자이내"}`;
+}
+
+function getUserPrompt() {
+  const today = getTodayDate();
+  return {
+    1: `${today} 대한민국 핫이슈 뉴스를 Google 검색으로 찾아서 블로그 글을 작성해주세요.`,
+    2: `${today} 세계 주요 핫이슈 뉴스를 Google 검색으로 찾아서 블로그 글을 작성해주세요.`,
+    3: `${today} 국내외 핫이슈 뉴스를 Google 검색으로 찾아서 블로그 글을 작성해주세요.`
+  }[selectedType];
+}
+
+function getImageUrl(query, idx) {
+  return `https://loremflickr.com/320/220/${encodeURIComponent(query)}?lock=${[11,33,55,77,99][idx%5]}`;
+}
+
+/* ── 글 생성 ── */
+async function generate() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) {
+    showError('Gemini API 키를 입력해주세요. <span style="color:#4285F4;cursor:pointer;text-decoration:underline;" onclick="openGuide()">무료 키 발급 방법 보기 →</span>');
+    return;
+  }
+
+  hideError();
+  document.getElementById('resultArea').innerHTML = '';
+  document.getElementById('genBtn').disabled = true;
+  document.getElementById('cancelBtn').classList.add('show');
+  abortController = new AbortController();
+  timeoutId = setTimeout(() => {
+    abortController.abort(); resetUI();
+    showError('⏱ 45초가 초과됐어요. 잠시 후 다시 시도해주세요.');
+  }, 45000);
+
+  try {
+    setStatus('Google에서 오늘의 핫이슈 검색 중...');
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal,
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: getSystemPrompt() }] },
+          contents: [{ role: 'user', parts: [{ text: getUserPrompt() }] }],
+          tools: [{ googleSearch: {} }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2000 }
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.error?.message || '';
+      if (msg.includes('API_KEY') || res.status === 400) throw new Error('API 키가 올바르지 않아요. 연결 확인 버튼을 눌러보세요.');
+      if (res.status === 429) throw new Error('요청이 너무 많아요. 1분 후 다시 시도해주세요.');
+      throw new Error(`오류가 발생했어요 (${res.status}). 다시 시도해주세요.`);
+    }
+
+    setStatus('AI가 블로그 글 작성 중...');
+    const data = await res.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!raw) throw new Error('응답이 비었어요. 다시 시도해주세요.');
+    const parsed = extractJSON(raw);
+    if (!parsed) throw new Error('글 생성에 실패했어요. 다시 시도해주세요.');
+
+    clearTimeout(timeoutId); resetUI(); renderPost(parsed);
+
+  } catch(e) {
+    clearTimeout(timeoutId); resetUI();
+    if (e.name !== 'AbortError') showError(e.message || '알 수 없는 오류가 발생했어요.');
+  }
+}
+
+/* ── 결과 렌더링 ── */
+function renderPost(post) {
+  const area = document.getElementById('resultArea');
+  area.innerHTML = '';
+  const card = document.createElement('div'); card.className = 'result-card';
+
+  const header = document.createElement('div'); header.className = 'result-header';
+  const titleEl = document.createElement('div'); titleEl.className = 'result-title'; titleEl.textContent = post.title || '제목 없음';
+  const copyBtn = document.createElement('button'); copyBtn.className = 'copy-btn'; copyBtn.textContent = '글 복사';
+  copyBtn.onclick = () => {
+    const text = post.title + '\n\n' + post.content;
+    navigator.clipboard.writeText(text).catch(() => {
+      const ta = document.createElement('textarea'); ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    });
+    copyBtn.textContent = '✓ 복사됨!'; copyBtn.classList.add('copied');
+    setTimeout(() => { copyBtn.textContent = '글 복사'; copyBtn.classList.remove('copied'); }, 2000);
+  };
+  header.appendChild(titleEl); header.appendChild(copyBtn); card.appendChild(header);
+
+  if (post.imageQueries?.length) {
+    const imgRow = document.createElement('div'); imgRow.className = 'blog-images';
+    post.imageQueries.slice(0,3).forEach((q,i) => {
+      const wrap = document.createElement('div'); wrap.className = 'blog-img-wrap';
+      const img = document.createElement('img'); img.alt = q; img.loading = 'lazy';
+      img.onerror = () => { wrap.innerHTML = `<div class="img-placeholder">${q}</div>`; };
+      img.src = getImageUrl(q, i);
+      const cap = document.createElement('div'); cap.className = 'img-caption'; cap.textContent = q;
+      wrap.appendChild(img); wrap.appendChild(cap); imgRow.appendChild(wrap);
+    });
+    card.appendChild(imgRow);
+  }
+
+  const content = document.createElement('div'); content.className = 'blog-content'; content.textContent = post.content || ''; card.appendChild(content);
+
+  if (post.keywords || post.category) {
+    const meta = document.createElement('div'); meta.className = 'meta-row';
+    (post.keywords||[]).forEach(kw => { const t = document.createElement('span'); t.className = 'tag'; t.textContent = '#'+kw; meta.appendChild(t); });
+    if (post.category) { const c = document.createElement('span'); c.className = 'tag cat'; c.textContent = post.category; meta.appendChild(c); }
+    card.appendChild(meta);
+  }
+  area.appendChild(card);
+}
+</script>
+</body>
+</html>
